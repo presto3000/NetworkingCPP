@@ -76,6 +76,33 @@ int main()
 		return -1;
 	}
 	cout << "Accepted connection " << endl;
+
+	cout << "// ----------------------------- Step 6 - Chat to the Client ------------------------------- // " "\n";
+	char buffer[200];
+
+	int byteCount = recv(acceptSocket, buffer, 200, 0);
+	if (byteCount > 0)
+	{
+		cout << "Message received: " << buffer << endl;
+	}
+	else
+	{
+		WSACleanup();
+	}
+	
+	char confirmation[200] = "Message Received";
+	byteCount = send(acceptSocket, confirmation, 200, 0);
+	if (byteCount > 0)
+	{
+		cout << "Automated Message sent to the Client " << endl;
+	}
+	else
+	{
+		WSACleanup();
+	}
+
+	cout << "// ----------------------------- Step 7 - Close socket ------------------------------- // " "\n";
+
 	system("pause");
 	WSACleanup();
 

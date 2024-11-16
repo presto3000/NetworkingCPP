@@ -56,6 +56,33 @@ int main()
 		cout << "Client: connect() is OK." << endl;
 		cout << "Client: Can start sending and receiving data..." << endl;
 	}
+
+	cout << "// ----------------------------- Step 4 - Chat to the Server ------------------------------- // " "\n";
+	char buffer[200];
+	cout << "Please enter a message to send to the Server: ";
+	cin.getline(buffer, 200);
+
+	int byteCount = send(clientSocket, buffer, 200, 0);
+	if (byteCount > 0)
+	{
+		cout << "Message sent: " << buffer << endl;
+	}
+	else
+	{
+		WSACleanup();
+	}
+
+	byteCount = recv(clientSocket, buffer, 200, 0);
+	if (byteCount > 0)
+	{
+		cout << "Message received: " << buffer << endl;
+	}
+	else
+	{
+		WSACleanup();
+	}
+
+	cout << "// ----------------------------- Step 5 - Close socket ------------------------------- // " "\n";
 	system("pause");
 	WSACleanup();
 	return 0;
