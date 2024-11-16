@@ -3,88 +3,157 @@
 #include <iostream>
 #include <winsock2.h>
 #include <WS2tcpip.h>
+#include <string>
 
 using namespace std;
 
+class TCPClient {
+private:
+	SOCKET clientSocket;
+	int port;
+	string serverIP;
+
+public:
+	TCPClient(const string& ip, int port) : serverIP(ip), port(port), clientSocket(INVALID_SOCKET) {}
+
+	// Initialize Winsock
+	bool initializeWinsock() 
+	{
+		WSADATA wsaData;
+		WORD wVersionRequested = MAKEWORD(2, 2);
+		int wsaerr = WSAStartup(wVersionRequested, &wsaData);
+		if (wsaerr != 0) {
+			cout << "WSAStartup failed: " << wsaerr << endl;
+			return false;
+		}
+		return true;
+	}
+
+	// Create a socket for the client
+	bool createClientSocket() 
+	{
+		clientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		if (clientSocket == INVALID_SOCKET) {
+			cout << "Error creating socket: " << WSAGetLastError() << endl;
+			return false;
+		}
+		return true;
+	}
+
+	// Connect to the server
+	bool connectToServer() 
+	{
+		std::string serverIP = "127.0.0.1"; // The server's IP address as a string
+		std::wstring wideServerIP(serverIP.begin(), serverIP.end());
+
+		sockaddr_in clientService;
+		clientService.sin_family = AF_INET;
+		InetPton(AF_INET, wideServerIP.c_str(), &clientService.sin_addr.s_addr);
+		clientService.sin_port = htons(port);
+
+		if (connect(clientSocket, (SOCKADDR*)&clientService, sizeof(clientService)) == SOCKET_ERROR) 
+		{
+			cout << "Connect failed: " << WSAGetLastError() << endl;
+			return false;
+		}
+
+		cout << "Connected to server at " << serverIP << ":" << port << endl;
+		return true;
+	}
+
+	// Send message to the server
+	bool sendMessage(const string& message) 
+	{
+		int byteCount = send(clientSocket, message.c_str(), message.length(), 0);
+		if (byteCount == SOCKET_ERROR) {
+			cout << "Send failed: " << WSAGetLastError() << endl;
+			return false;
+		}
+		cout << "Message sent: " << message << endl;
+		return true;
+	}
+
+	// Receive message from the server
+	bool receiveMessage() 
+	{
+		char buffer[200];
+		int byteCount = recv(clientSocket, buffer, sizeof(buffer), 0);
+		if (byteCount > 0) 
+		{
+			buffer[byteCount] = '\0'; // Null-terminate the received string
+			cout << "Message received from server: " << buffer << endl;
+			return true;
+		}
+		else if (byteCount == 0) {
+			cout << "Connection closed by server" << endl;
+			return false;
+		}
+		else {
+			cout << "Receive failed: " << WSAGetLastError() << endl;
+			return false;
+		}
+	}
+
+	// Close the client socket
+	void closeConnection() 
+	{
+		closesocket(clientSocket);
+		WSACleanup();
+	}
+};
+
 int main()
 {
-	cout << "// ----------------------------- CLIENT ---------------------------------------------// " "\n";
-	cout << "// ----------------------------- Step 1 - Set up DLL ------------------------------- // " "\n";
-	SOCKET clientSocket;
-	int port = 55555;
-	WSADATA wsaData;
-	int wsaerr;
-	WORD wVersionRequested = MAKEWORD(2, 2);
-	wsaerr = WSAStartup(wVersionRequested, &wsaData);
+	string serverIP = "127.0.0.1";  // Server IP address
+	int port = 55555;  // Server port
 
-	if (wsaerr != 0)
+	// Create a TCPClient object
+	TCPClient client(serverIP, port);
+
+	// Initialize Winsock
+	if (!client.initializeWinsock()) 
 	{
-		cout << "The Winsock dll not found!" << endl;
-		return 0;
-	}
-	else
-	{
-		cout << "The winsock dll found!" << endl;
-		cout << "The status: " << wsaData.szSystemStatus << endl;
-	}
-	cout << "// ----------------------------- Step 2 - Set up Client Socket ------------------------------- // " "\n";
-	clientSocket = INVALID_SOCKET;
-	clientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (clientSocket == INVALID_SOCKET)
-	{
-		cout << "Error at socket(): " << WSAGetLastError() << endl;
-		WSACleanup();
-		return 0;
-	}
-	else
-	{
-		cout << "socket() is OK" << endl;
-	}
-	cout << "// ----------------------------- Step 3 - Connect with the Server ------------------------------- // " "\n";
-	sockaddr_in clientService;
-	clientService.sin_family = AF_INET;
-	InetPton(AF_INET, L"127.0.0.1", &clientService.sin_addr.s_addr);
-	clientService.sin_port = htons(port);
-	if (connect(clientSocket, (SOCKADDR*)&clientService, sizeof(clientService)) == SOCKET_ERROR)
-	{
-		cout << "Client: connect() - Failed to connect" << endl;
-		WSACleanup();
-		return 0;
-	}
-	else
-	{
-		cout << "Client: connect() is OK." << endl;
-		cout << "Client: Can start sending and receiving data..." << endl;
+		cout << "Failed to initialize Winsock" << endl;
+		return 1;
 	}
 
-	cout << "// ----------------------------- Step 4 - Chat to the Server ------------------------------- // " "\n";
-	char buffer[200];
-	cout << "Please enter a message to send to the Server: ";
-	cin.getline(buffer, 200);
-
-	int byteCount = send(clientSocket, buffer, 200, 0);
-	if (byteCount > 0)
+	// Create the client socket
+	if (!client.createClientSocket()) 
 	{
-		cout << "Message sent: " << buffer << endl;
-	}
-	else
-	{
-		WSACleanup();
+		cout << "Failed to create client socket" << endl;
+		client.closeConnection();
+		return 1;
 	}
 
-	byteCount = recv(clientSocket, buffer, 200, 0);
-	if (byteCount > 0)
+	// Connect to the server
+	if (!client.connectToServer()) 
 	{
-		cout << "Message received: " << buffer << endl;
-	}
-	else
-	{
-		WSACleanup();
+		cout << "Failed to connect to the server" << endl;
+		client.closeConnection();
+		return 1;
 	}
 
-	cout << "// ----------------------------- Step 5 - Close socket ------------------------------- // " "\n";
-	system("pause");
-	WSACleanup();
+	// Chat with the server
+	string message;
+	cout << "Please enter a message to send to the server: ";
+	std::getline(std::cin, message);
+	if (!client.sendMessage(message)) 
+	{
+		cout << "Failed to send the message" << endl;
+		client.closeConnection();
+		return 1;
+	}
+
+	// Receive response from the server
+	if (!client.receiveMessage()) 
+	{
+		cout << "Failed to receive a response from the server" << endl;
+		client.closeConnection();
+		return 1;
+	}
+
+	// Close the connection
+	client.closeConnection();
 	return 0;
 
 }
